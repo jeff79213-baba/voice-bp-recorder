@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#e74c3c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>語音血壓紀錄器</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  background:#f0f2f5;color:#1a1a2e;line-height:1.5;
+  min-height:100vh;min-height:-webkit-fill-available;
+  -webkit-tap-highlight-color:transparent
+}
+#app{max-width:480px;margin:0 auto;padding:0 0 80px;min-height:100vh}
+
+/* Header */
+header{
+  background:linear-gradient(135deg,#e74c3c,#c0392b);
+  color:#fff;padding:14px 18px;position:sticky;top:0;z-index:100;
+  box-shadow:0 2px 8px rgba(0,0,0,.15)
+}
+header .top{display:flex;justify-content:space-between;align-items:center}
+header h1{font-size:1.2rem;font-weight:700;display:flex;align-items:center;gap:8px}
+header .sub{font-size:.72rem;opacity:.8;margin-top:1px}
+.btn-icon{background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;padding:4px 8px;opacity:.85}
+.btn-icon:hover{opacity:1}
+
+/* Card */
+.card{background:#fff;border-radius:14px;padding:16px 18px;margin:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+
+/* Form */
+.fld{margin-bottom:10px}
+.fld:last-child{margin-bottom:0}
+.fld label{display:block;font-size:.82rem;font-weight:600;color:#555;margin-bottom:3px}
+.fld input,.fld textarea{
+  width:100%;padding:10px 12px;border:2px solid #e4e4e4;border-radius:9px;
+  font-size:1rem;font-family:inherit;transition:border-color .2s,background .2s;
+  background:#fafafa;-webkit-appearance:none;appearance:none
+}
+.fld input:focus,.fld textarea:focus{outline:none;border-color:#e74c3c;background:#fff}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  padding:12px 16px;border:none;border-radius:10px;font-size:.95rem;
+  font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;
+  min-height:48px;user-select:none;-webkit-user-select:none
+}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:#e74c3c;color:#fff}
+.btn-secondary{background:#3498db;color:#fff}
+.btn-success{background:#27ae60;color:#fff}
+.btn-voice{background:#f39c12;color:#fff;flex:1}
+.btn-voice.listening{background:#e74c3c;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+.btn-grp{display:flex;gap:8px;margin-top:12px}
+.btn-grp .btn{flex:1}
+
+/* Records header */
+.rec-hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 16px 6px}
+.rec-hdr h2{font-size:1.05rem;color:#333}
+.rec-hdr .cnt{font-size:.8rem;color:#999}
+
+/* Record items */
+.rec-empty{text-align:center;padding:40px 20px;color:#bbb}
+.rec-empty .ic{font-size:3rem;margin-bottom:10px}
+.rec-empty p{font-size:.9rem;line-height:1.6}
+.rec-item{
+  background:#fff;border-radius:10px;padding:11px 14px;margin:0 14px 7px;
+  box-shadow:0 1px 3px rgba(0,0,0,.05);display:flex;justify-content:space-between;
+  align-items:center;position:relative
+}
+.rec-item .ri{flex:1;min-width:0}
+.rec-item .rdt{font-size:.72rem;color:#999;margin-bottom:1px}
+.rec-item .rbp{font-size:1.15rem;font-weight:700;color:#333}
+.rec-item .rbp .sys{color:#e74c3c}
+.rec-item .rbp .dia{color:#3498db}
+.rec-item .rbp .sep{color:#bbb;margin:0 3px}
+.rec-item .rpul{font-size:.82rem;color:#888}
+.rec-item .rcon{font-size:.78rem;color:#27ae60;margin-top:1px}
+.rec-item .del-btn{
+  background:none;border:none;font-size:1.3rem;cursor:pointer;
+  padding:8px 4px 8px 12px;color:#ccc;transition:color .2s
+}
+.rec-item .del-btn:hover{color:#e74c3c}
+
+/* Toast */
+#toast{
+  position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.82);color:#fff;padding:10px 22px;border-radius:22px;
+  font-size:.85rem;z-index:999;opacity:0;transition:opacity .3s;
+  pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center
+}
+#toast.show{opacity:1}
+
+/* Transcript overlay */
+#transcript{
+  position:fixed;bottom:0;left:0;right:0;
+  background:rgba(0,0,0,.88);color:#fff;padding:18px 20px 28px;
+  font-size:1.05rem;z-index:500;
+  transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1)
+}
+#transcript.show{transform:translateY(0)}
+#transcript .cls{position:absolute;top:6px;right:10px;background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer}
+#transcript .hint{font-size:.72rem;opacity:.55;margin-top:5px}
+#transcript .pi{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.18);font-size:.88rem;color:#8bc34a}
+
+/* Condition tags */
+.tag-grp{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.tag{
+  padding:3px 11px;border-radius:14px;border:1px solid #ddd;
+  font-size:.78rem;background:#f5f5f5;cursor:pointer;transition:all .15s;
+  user-select:none;-webkit-user-select:none
+}
+.tag:active{background:#ddd}
+.tag.sel{background:#27ae60;color:#fff;border-color:#27ae60}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px}
+
+@media(min-width:481px){body{background:#e4e7eb}}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header>
+  <div class="top">
+    <div>
+      <h1>❤️ 語音血壓紀錄器</h1>
+      <div class="sub">語音輸入・自動儲存・60天管理</div>
+    </div>
+    <button class="btn-icon" onclick="exportCSV()" title="匯出 CSV">📥</button>
+  </div>
+</header>
+
+<div class="card" style="margin-top:14px">
+  <div class="fld row2">
+    <div><label>📅 日期</label><input type="date" id="fd"></div>
+    <div><label>🕐 時間</label><input type="time" id="ft"></div>
+  </div>
+  <div class="fld row3">
+    <div><label style="color:#e74c3c">🔴 收縮壓</label><input type="number" id="fsys" placeholder="高壓" min="60" max="250" inputmode="numeric"></div>
+    <div><label style="color:#3498db">🔵 舒張壓</label><input type="number" id="fdia" placeholder="低壓" min="30" max="150" inputmode="numeric"></div>
+    <div><label>💓 脈搏</label><input type="number" id="fpul" placeholder="次/分" min="30" max="220" inputmode="numeric"></div>
+  </div>
+  <div class="fld">
+    <label>📝 身體狀況</label>
+    <input type="text" id="fcon" placeholder="良好、頭暈、疲倦..." list="csug">
+    <datalist id="csug">
+      <option value="良好"><option value="疲倦"><option value="頭暈"><option value="頭痛">
+      <option value="服藥後"><option value="運動後"><option value="空腹"><option value="飯後">
+      <option value="緊張"><option value="睡眠不足"><option value="不舒服">
+    </datalist>
+    <div class="tag-grp" id="tagGrp"></div>
+  </div>
+  <div class="btn-grp">
+    <button class="btn btn-voice" id="vb">🎤 語音輸入</button>
+    <button class="btn btn-success" onclick="saveRec()">💾 儲存</button>
+  </div>
+</div>
+
+<div class="rec-hdr">
+  <h2>📋 歷史記錄</h2>
+  <span class="cnt" id="rcnt">0 筆</span>
+</div>
+<div id="rlist"></div>
+
+</div>
+
+<div id="transcript">
+  <button class="cls" onclick="closeTranscript()">✕</button>
+  <div id="tt">正在聆聽...</div>
+  <div class="hint">請說：收縮壓120 舒張壓80 脈搏72 狀況良好</div>
+  <div class="pi" id="tpi"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ==================== IndexedDB ====================
+const DB='bp_recorder',VER=1,ST='records';
+function opDB(){return new Promise((rs,rj)=>{
+  const r=indexedDB.open(DB,VER);
+  r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains(ST))d.createObjectStore(ST,{keyPath:'id',autoIncrement:true}).createIndex('ca','ca',{unique:false})};
+  r.onsuccess=e=>rs(e.target.result);
+  r.onerror=e=>rj(e.target.error)
+})}
+function addRec(r){return opDB().then(d=>new Promise((rs,rj)=>{const t=d.transaction(ST,'readwrite'),s=t.objectStore(ST);s.add(r);t.oncomplete=()=>{rs()};t.onerror=e=>rj(e.target.error)}))}
+function allRecs(){return opDB().then(d=>new Promise((rs,rj)=>{const t=d.transaction(ST,'readonly'),s=t.objectStore(ST),r=s.getAll();r.onsuccess=()=>rs(r.result);r.onerror=e=>rj(e.target.error)}))}
+function delRec(id){return opDB().then(d=>new Promise((rs,rj)=>{const t=d.transaction(ST,'readwrite'),s=t.objectStore(ST);s.delete(id);t.oncomplete=()=>rs();t.onerror=e=>rj(e.target.error)}))}
+
+// ==================== Toast ====================
+function toast(msg,t=2000){
+  const e=document.getElementById('toast');
+  e.textContent=msg;e.classList.add('show');
+  clearTimeout(e._t);
+  e._t=setTimeout(()=>e.classList.remove('show'),t)
+}
+
+// ==================== Date / Time ====================
+function today(){const d=new Date();return d.toISOString().split('T')[0]}
+function now(){const d=new Date();return d.toTimeString().split(' ')[0].substring(0,5)}
+
+// ==================== Condition Tags ====================
+const COND_TAGS=['良好','疲倦','頭暈','頭痛','服藥後','運動後','空腹','飯後','緊張','不舒服'];
+(function initTags(){
+  const g=document.getElementById('tagGrp');
+  COND_TAGS.forEach(t=>{
+    const el=document.createElement('span');
+    el.className='tag';el.textContent=t;
+    el.onclick=()=>{
+      const inp=document.getElementById('fcon');
+      if(el.classList.contains('sel')){
+        el.classList.remove('sel');
+        inp.value=inp.value.replace(t,'').trim();
+      }else{
+        document.querySelectorAll('.tag.sel').forEach(s=>s.classList.remove('sel'));
+        el.classList.add('sel');
+        inp.value=t;
+      }
+    };
+    g.appendChild(el)
+  })
+})();
+
+// ==================== Init ====================
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('fd').value=today();
+  document.getElementById('ft').value=now();
+  // 60-day cleanup
+  cleanOld().then(n=>{
+    if(n>0)toast(`已清除 ${n} 筆超過 60 天的舊記錄`);
+    loadRecs()
+  }).catch(()=>loadRecs())
+})
+
+// ==================== Auto-delete old records (60 days) ====================
+async function cleanOld(){
+  const cutoff=Date.now()-60*24*60*60*1000;
+  const recs=await allRecs();
+  let n=0;
+  for(const r of recs){if(r.ca&&r.ca<cutoff){await delRec(r.id);n++}}
+  return n
+}
+
+// ==================== Save Record ====================
+async function saveRec(){
+  const d=document.getElementById('fd').value;
+  const t=document.getElementById('ft').value;
+  const sys=parseInt(document.getElementById('fsys').value);
+  const dia=parseInt(document.getElementById('fdia').value);
+  const pul=parseInt(document.getElementById('fpul').value)||0;
+  const con=document.getElementById('fcon').value.trim();
+  if(!d||!t){toast('請填寫日期和時間');return}
+  if(!sys||sys<60||sys>250){toast('收縮壓須在 60-250 之間');document.getElementById('fsys').focus();return}
+  if(!dia||dia<30||dia>150){toast('舒張壓須在 30-150 之間');document.getElementById('fdia').focus();return}
+  if(sys<=dia){toast('收縮壓必須大於舒張壓');return}
+  if(pul&&(pul<30||pul>220)){toast('脈搏須在 30-220 之間');return}
+  try{
+    await addRec({date:d,time:t,systolic:sys,diastolic:dia,pulse:pul,condition:con,ca:Date.now()});
+    toast('✅ 已儲存');
+    document.getElementById('fsys').value='';
+    document.getElementById('fdia').value='';
+    document.getElementById('fpul').value='';
+    document.getElementById('fcon').value='';
+    document.querySelectorAll('.tag.sel').forEach(s=>s.classList.remove('sel'));
+    document.getElementById('ft').value=now();
+    loadRecs()
+  }catch(e){toast('❌ 儲存失敗：'+e.message)}
+}
+
+// ==================== Load Records ====================
+async function loadRecs(){
+  const recs=await allRecs();
+  recs.sort((a,b)=>b.ca-a.ca);
+  document.getElementById('rcnt').textContent=recs.length+' 筆';
+  const el=document.getElementById('rlist');
+  if(recs.length===0){
+    el.innerHTML='<div class="rec-empty"><div class="ic">📊</div><p>尚無血壓記錄<br>點擊上方按鈕開始記錄</p></div>';
+    return
+  }
+  el.innerHTML=recs.map(r=>`<div class="rec-item">
+    <div class="ri">
+      <div class="rdt">${r.date} ${r.time}</div>
+      <div class="rbp"><span class="sys">${r.systolic}</span><span class="sep">/</span><span class="dia">${r.diastolic}</span>${r.pulse?`<span class="rpul"> | ${r.pulse} bpm</span>`:''}</div>
+      ${r.condition?`<div class="rcon">${escHtml(r.condition)}</div>`:''}
+    </div>
+    <button class="del-btn" onclick="confirmDel(${r.id})">🗑️</button>
+  </div>`).join('')
+}
+function escHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+// ==================== Delete ====================
+async function confirmDel(id){
+  if(!confirm('確定刪除此記錄？'))return;
+  await delRec(id);
+  toast('已刪除');
+  loadRecs()
+}
+
+// ==================== Export CSV ====================
+async function exportCSV(){
+  const recs=await allRecs();
+  if(recs.length===0){toast('尚無記錄可匯出');return}
+  recs.sort((a,b)=>a.ca-b.ca);
+  const h='日期,時間,收縮壓,舒張壓,脈搏,身體狀況';
+  const r=recs.map(r=>`${r.date},${r.time},${r.systolic},${r.diastolic},${r.pulse||''},"${(r.condition||'').replace(/"/g,'""')}"`);
+  const blob=new Blob(['\uFEFF'+[h,...r].join('\n')],{type:'text/csv;charset=utf-8'});
+  const u=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=u;a.download=`血壓紀錄_${today()}.csv`;
+  a.click();URL.revokeObjectURL(u);toast('✅ CSV 匯出成功')
+}
+
+// ==================== Voice Input ====================
+let recog=null,listening=false;
+
+function startVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('❌ 請使用 Chrome 瀏覽器');return}
+  if(listening){stopVoice();return}
+
+  recog=new SR();
+  recog.lang='zh-TW';
+  recog.continuous=false;
+  recog.interimResults=true;
+  recog.maxAlternatives=1;
+
+  const tx=document.getElementById('transcript');
+  const tt=document.getElementById('tt');
+  const tpi=document.getElementById('tpi');
+  const vb=document.getElementById('vb');
+
+  tt.textContent='🎤 正在聆聽...';
+  tpi.textContent='';
+  tx.classList.add('show');
+  vb.classList.add('listening');
+  vb.textContent='⏹ 停止聆聽';
+  listening=true;
+
+  let final='';
+
+  recog.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript;
+      else interim+=e.results[i][0].transcript
+    }
+    const display=final+interim;
+    tt.textContent=display||'🎤 正在聆聽...';
+    const p=parseVoice(final||interim);
+    if(p){
+      const parts=[];
+      if(p.systolic)parts.push('收縮壓: '+p.systolic);
+      if(p.diastolic)parts.push('舒張壓: '+p.diastolic);
+      if(p.pulse)parts.push('脈搏: '+p.pulse);
+      if(p.condition)parts.push('狀況: '+p.condition);
+      tpi.textContent=parts.join(' | ')
+    }
+  };
+
+  recog.onend=()=>{
+    if(final){
+      const p=parseVoice(final);
+      if(p){
+        if(p.systolic)document.getElementById('fsys').value=p.systolic;
+        if(p.diastolic)document.getElementById('fdia').value=p.diastolic;
+        if(p.pulse)document.getElementById('fpul').value=p.pulse;
+        if(p.condition){
+          document.getElementById('fcon').value=p.condition;
+          document.querySelectorAll('.tag.sel').forEach(s=>s.classList.remove('sel'));
+          const t=Array.from(document.querySelectorAll('.tag')).find(el=>el.textContent===p.condition);
+          if(t)t.classList.add('sel')
+        }
+        toast('✅ 語音辨識完成，資料已填入')
+      }else{
+        toast('⚠️ 無法辨識血壓數據，請手動輸入或再試一次')
+      }
+    }
+    stopVoice()
+  };
+
+  recog.onerror=e=>{
+    if(e.error!='aborted'){
+      toast('❌ 語音錯誤：'+e.error);
+      stopVoice()
+    }
+  };
+
+  recog.start()
+}
+
+function stopVoice(){
+  if(recog){try{recog.stop()}catch(e){}}
+  listening=false;
+  const vb=document.getElementById('vb');
+  vb.classList.remove('listening');
+  vb.textContent='🎤 語音輸入';
+  setTimeout(()=>document.getElementById('transcript').classList.remove('show'),2500)
+}
+function closeTranscript(){document.getElementById('transcript').classList.remove('show');stopVoice()}
+
+// ==================== Voice Parser ====================
+function parseVoice(t){
+  if(!t)return null;
+  const r={};
+  t=t.replace(/\s+/g,'');
+  // Extract with keywords
+  const m1=t.match(/(?:收縮壓|高壓|高)[：:=\s]*(\d+)/);
+  if(m1)r.systolic=parseInt(m1[1]);
+  const m2=t.match(/(?:舒張壓|低壓|低)[：:=\s]*(\d+)/);
+  if(m2)r.diastolic=parseInt(m2[1]);
+  const m3=t.match(/(?:脈搏|心跳|心率)[：:=\s]*(\d+)/);
+  if(m3)r.pulse=parseInt(m3[1]);
+  const m4=t.match(/(?:狀況|狀態|身體|身體狀況|備註)[：:=\s]*([^\d\s]{1,15})/);
+  if(m4)r.condition=m4[1].trim();
+  // Fallback: find two numbers if systolic/diastolic missing
+  if(!r.systolic||!r.diastolic){
+    const nums=t.match(/\d+/g);
+    if(nums&&nums.length>=2){
+      const n=nums.map(Number);
+      if(!r.systolic)r.systolic=n[0];
+      if(!r.diastolic)r.diastolic=n[1];
+      if(nums.length>=3&&!r.pulse)r.pulse=n[2]
+    }
+  }
+  // Validate
+  if(r.systolic&&(r.systolic<60||r.systolic>250))delete r.systolic;
+  if(r.diastolic&&(r.diastolic<30||r.diastolic>150))delete r.diastolic;
+  if(r.pulse&&(r.pulse<30||r.pulse>220))delete r.pulse;
+  // Chinese number fallback
+  if(!r.systolic&&!r.diastolic){
+    const cn=parseChineseNums(t);
+    if(cn.length>=2){r.systolic=cn[0];r.diastolic=cn[1]}
+    if(cn.length>=3&&!r.pulse)r.pulse=cn[2]
+  }
+  return (r.systolic||r.diastolic||r.pulse||r.condition)?r:null
+}
+
+function parseChineseNums(s){
+  const map={零:0,一:1,二:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9};
+  const results=[];
+  let buf='';
+  for(const ch of s){
+    if(map[ch]!==undefined)buf+=ch;
+    else if('十百千' .includes(ch))buf+=ch;
+    else if(ch==='點'||ch==='.')buf+=ch;
+    else{
+      if(buf){const n=cnToNum(buf);if(n!==null)results.push(n);buf=''}
+    }
+  }
+  if(buf){const n=cnToNum(buf);if(n!==null)results.push(n)}
+  return results
+}
+
+function cnToNum(s){
+  const d={零:0,一:1,二:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9};
+  // Sequential digits: "一二零" → 120
+  if([...s].every(c=>d[c]!==undefined)){
+    let v=0;
+    for(const c of s)v=v*10+d[c];
+    return v
+  }
+  // Full Chinese number
+  let r=0,t=0;
+  for(const c of s){
+    if(d[c]!==undefined){t=d[c]}
+    else if(c==='十'){if(t===0)t=1;t*=10;r+=t;t=0}
+    else if(c==='百'){if(t===0)t=1;t*=100;r+=t;t=0}
+    else if(c==='千'){if(t===0)t=1;t*=1000;r+=t;t=0}
+  }
+  r+=t;
+  // Colloquial "一百二" → 120
+  if(s.includes('百')&&!s.includes('十')&&t>0){
+    const bi=s.indexOf('百');
+    const bv=d[s[bi-1]]||1;
+    const gv=d[s[bi+1]]||0;
+    if(gv>0)r=bv*100+gv*10
+  }
+  return r>0?r:null
+}
+
+// ==================== Service Worker Registration ====================
+if('serviceWorker'in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{})
+  })
+}
+</script>
+</body>
+</html>
