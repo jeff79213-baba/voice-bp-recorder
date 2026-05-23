@@ -328,19 +328,37 @@ let recog=null,listening=false;
 
 function startVoice(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){toast('❌ 請使用 Chrome 瀏覽器');return}
+  if(!SR){toast('❌ 此瀏覽器不支援語音辨識');return}
   if(listening){stopVoice();return}
-
-  recog=new SR();
-  recog.lang='zh-TW';
-  recog.continuous=false;
-  recog.interimResults=true;
-  recog.maxAlternatives=1;
 
   const tx=document.getElementById('transcript');
   const tt=document.getElementById('tt');
   const tpi=document.getElementById('tpi');
   const vb=document.getElementById('vb');
+
+  // Check microphone permission first (especially needed on iOS)
+  if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
+    navigator.mediaDevices.getUserMedia({audio:true}).then(()=>{
+      startRecognition(SR,tx,tt,tpi,vb)
+    }).catch(err=>{
+      let msg='❌ 無法存取麥克風';
+      if(err.name==='NotAllowedError'||err.name==='PermissionDeniedError'){
+        msg='❌ 麥克風權限被拒絕，請到 iPhone「設定 > Safari > 麥克風」開啟'
+      }
+      toast(msg);
+      stopVoiceUI()
+    })
+  }else{
+    startRecognition(SR,tx,tt,tpi,vb)
+  }
+}
+
+function startRecognition(SR,tx,tt,tpi,vb){
+  recog=new SR();
+  recog.lang='zh-TW';
+  recog.continuous=false;
+  recog.interimResults=true;
+  recog.maxAlternatives=1;
 
   tt.textContent='🎤 正在聆聽...';
   tpi.textContent='';
@@ -393,12 +411,29 @@ function startVoice(){
 
   recog.onerror=e=>{
     if(e.error!='aborted'){
-      toast('❌ 語音錯誤：'+e.error);
+      if(e.error==='service-not-allowed'){
+        toast('❌ iPhone 請到「設定 > Safari > 麥克風」開啟權限後重試')
+      }else{
+        toast('❌ 語音錯誤：'+e.error)
+      }
       stopVoice()
     }
   };
 
   recog.start()
+}
+
+function stopVoiceUI(){
+  listening=false;
+  const vb=document.getElementById('vb');
+  vb.classList.remove('listening');
+  vb.textContent='🎤 語音輸入'
+}
+
+function stopVoice(){
+  if(recog){try{recog.stop()}catch(e){}}
+  stopVoiceUI();
+  setTimeout(()=>document.getElementById('transcript').classList.remove('show'),2500)
 }
 
 function stopVoice(){
