@@ -336,24 +336,13 @@ function startVoice(){
   const tpi=document.getElementById('tpi');
   const vb=document.getElementById('vb');
 
-  // Check microphone permission first (especially needed on iOS)
+  // Trigger microphone permission prompt on iOS (non-blocking)
   if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
-    navigator.mediaDevices.getUserMedia({audio:true}).then(()=>{
-      startRecognition(SR,tx,tt,tpi,vb)
-    }).catch(err=>{
-      let msg='❌ 無法存取麥克風';
-      if(err.name==='NotAllowedError'||err.name==='PermissionDeniedError'){
-        msg='❌ 麥克風權限被拒絕，請到 iPhone「設定 > Safari > 麥克風」開啟'
-      }
-      toast(msg);
-      stopVoiceUI()
-    })
-  }else{
-    startRecognition(SR,tx,tt,tpi,vb)
+    navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{
+      setTimeout(()=>{try{s.getTracks().forEach(t=>t.stop())}catch(e){}},100)
+    }).catch(()=>{})
   }
-}
 
-function startRecognition(SR,tx,tt,tpi,vb){
   recog=new SR();
   recog.lang='zh-TW';
   recog.continuous=false;
@@ -411,8 +400,8 @@ function startRecognition(SR,tx,tt,tpi,vb){
 
   recog.onerror=e=>{
     if(e.error!='aborted'){
-      if(e.error==='service-not-allowed'){
-        toast('❌ iPhone 請到「設定 > Safari > 麥克風」開啟權限後重試')
+      if(e.error==='service-not-allowed'||e.error==='not-allowed'){
+        toast('❌ 語音被拒，請到 iPhone「設定＞Safari＞麥克風」開啟；如已開啟，請至「設定＞Safari＞進階＞網站資料」刪除本網站資料後重新整理')
       }else{
         toast('❌ 語音錯誤：'+e.error)
       }
@@ -423,16 +412,12 @@ function startRecognition(SR,tx,tt,tpi,vb){
   recog.start()
 }
 
-function stopVoiceUI(){
+function stopVoice(){
+  if(recog){try{recog.stop()}catch(e){}}
   listening=false;
   const vb=document.getElementById('vb');
   vb.classList.remove('listening');
-  vb.textContent='🎤 語音輸入'
-}
-
-function stopVoice(){
-  if(recog){try{recog.stop()}catch(e){}}
-  stopVoiceUI();
+  vb.textContent='🎤 語音輸入';
   setTimeout(()=>document.getElementById('transcript').classList.remove('show'),2500)
 }
 
